@@ -1,0 +1,132 @@
+import telebot
+
+bot = telebot.TeleBot("Ваш токен телеграмм бота")
+from telegram.ext import ApplicationBuilder, MessageHandler, filters, CallbackQueryHandler, CommandHandler
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from util import *
+import random
+
+
+def random_box():
+    boxes = []
+    k = random.randint(3, 5)
+    for _ in range(k):
+        a = (random.randint(0, 2), random.randint(0, 2))
+        if a in boxes:
+            k = a
+            while k == a:
+                k = (random.randint(0, 2), random.randint(0, 2))
+            boxes.append(k)
+        else:
+            boxes.append(a)
+    return boxes
+
+
+stavka = ""
+text = ""
+
+
+async def send_text(update, context, message):
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+
+
+async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, commands: dict):
+    command_list = [BotCommand(key, value) for key, value in commands.items()]
+    await context.bot.set_my_commands(command_list, scope=BotCommandScopeChat(chat_id=update.effective_chat.id))
+    await context.bot.set_chat_menu_button(menu_button=MenuButtonCommands(), chat_id=update.effective_chat.id)
+
+
+async def lobby(update, context):
+    dialog.mode = 'lobby'
+    start_text = ("Вас приветствует угадайка!" + "\n" +
+                  "Ваша задача - угадать в какой из коробок находится выбранный вами приз)")
+    button = [InlineKeyboardButton(text='Начать игру', callback_data='game_start')]
+    await update.message.reply_text(start_text, reply_markup=InlineKeyboardMarkup([button]))
+
+    await show_main_menu(update, context, {
+        "start": "Главное меню"
+    })
+
+
+async def single(update, context):
+    dialog.mode = "singleplayer"
+    await send_text(update, context, "Что будете ставить?")
+
+
+async def single_play(update, context):
+    global stavka
+    stavka = update.message.text.lower()
+    select_prize = "Выберете приз"
+    buttons = [
+        [InlineKeyboardButton(text='Пиво 🍺', callback_data='start_🍺'),
+         InlineKeyboardButton(text='Мандарин 🍊', callback_data='start_🍊')],
+    ]
+    await update.message.reply_text(select_prize, reply_markup=InlineKeyboardMarkup(buttons))
+
+
+async def start_single_play(update, context):
+    global text
+    text = update.callback_query.data.partition('_')[-1]
+    message = ("Игра начинается!" + '\n' +
+               f"Найдите {text} в коробке и получите {stavka}")
+
+    boxes = [[InlineKeyboardButton(text='📦', callback_data="lose_")] * 3 for _ in range(3)]
+
+    prizes = random_box()
+    for i in prizes:
+        a, b = i
+        for j in range(3):
+            for k in range(3):
+                if a == j and b == k:
+                    boxes[a][b] = InlineKeyboardButton(text='📦', callback_data=f"lose_{text}")
+    markup = InlineKeyboardMarkup(boxes)
+    await update.callback_query.message.reply_text(text=message, reply_markup=markup)
+
+
+async def win_or_death(update, context):
+    boxes = update.callback_query.message.reply_markup.inline_keyboard
+    boxes_new = [[InlineKeyboardButton(text='📦', callback_data="lose_")] * 3 for _ in range(3)]
+    for i in range(3):
+        for j in range(3):
+            callbacks = boxes[i][j].callback_data.partition('_')[-1]
+            if callbacks == "":
+                boxes_new[i][j] = InlineKeyboardButton(text="❌", callback_data="0")
+            else:
+                boxes_new[i][j] = InlineKeyboardButton(text=text, callback_data="0")
+    bot.delete_message(chat_id=update.callback_query.message.chat.id,
+                       message_id=update.callback_query.message.message_id)
+    await update.callback_query.message.reply_text(text=update.callback_query.message.text,
+                                                   reply_markup=InlineKeyboardMarkup(boxes_new))
+    result = update.callback_query.data.partition('_')[-1]
+    if result != "":
+        await send_text(update, context, f"Поздравляем! Вы нашли {text}!")
+        new_try_win = "Не хотите ещё раз испытать свою удачу?)"
+        button1 = [[InlineKeyboardButton(text="Попробовать ещё", callback_data="restart_")]]
+        markup = InlineKeyboardMarkup(button1)
+        await update.callback_query.message.reply_text(new_try_win, reply_markup=markup)
+    else:
+        new_try_lose = "Вы не угадали( Может попробуете еще раз?"
+        button2 = [[InlineKeyboardButton(text="Попробовать снова", callback_data="restart_")]]
+        markup = InlineKeyboardMarkup(button2)
+        await update.callback_query.message.reply_text(new_try_lose, reply_markup=markup)
+
+
+async def dialogs(update, context):
+    if dialog.mode == "singleplayer":
+        await single_play(update, context)
+
+
+dialog = Dialog()
+dialog.mode = None
+app = ApplicationBuilder().token("Ваш токен телеграмм бота").build()
+app.add_handler(CommandHandler("start", lobby))
+app.add_handler(CallbackQueryHandler(single, pattern="game_*"))
+app.add_handler(CallbackQueryHandler(start_single_play, pattern="^start_*"))
+app.add_handler(CallbackQueryHandler(win_or_death, pattern="lose_*"))
+app.add_handler(CallbackQueryHandler(single, pattern="restart_*"))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, dialogs))
+app.run_polling()
+
+
+class Dialog:
+    pass
