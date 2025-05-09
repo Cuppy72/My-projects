@@ -4,7 +4,7 @@ from util import *
 import openai
 from gpt import *
 
-promt = open("C:/Users/fipro/Downloads/Райан Гослинг/Промт.txt").read()
+promt = open("Путь к файлу Ryan Gosling.promt").read()
 
 
 async def show_main_menu(update, context, commands):
@@ -62,11 +62,9 @@ async def dialog_stop(update, context):
 
 dialog = Dialog()
 dialog.mode = None
-chatgpt = ChatGptService(token="javcgkAld/r/7U60nS8WDUhWeWVYkZbhjQYpKBFGTvoj5842ast7Pxc54epaCxHRBWXa4vjUutckFaoaUmyOdt6"
-                               "2mPPZjjrSFzHlklUvRxjKkD54HiY1iMRLus7TxOkcmPElgqCRPBocX6wJsuWbUTuGkgPNjhYwE08Bvau9oVOiaB"
-                               "cWnUrI/ewY+ccVqx7dnAN4A7RhT46B8BjZjVtU/H8jZakz1cJir+37f/KOL/cTVnmJo=")
+chatgpt = ChatGptService(token="Ваш токен чата gpt")
 
-app = ApplicationBuilder().token("7711220886:AAHuT9IHZXzM2yWEVzwsbNLHKEBeoYDKuYk").build()
+app = ApplicationBuilder().token("Ваш токен телеграмм бота").build()
 app.add_handler(CommandHandler("new", dialog_gpt))
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("stop", dialog_stop))
